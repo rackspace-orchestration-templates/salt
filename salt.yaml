@@ -1,0 +1,180 @@
+heat_template_version: 2013-05-23
+
+description: |
+  This is a Heat template to deploy a salt master and a number of minions.
+
+parameter_groups:
+
+- label: Salt Master Settings
+  parameters:
+  - image
+  - master_flavor
+
+- label: Salt Minion Settings
+  parameters:
+  - minion_flavor
+  - number_of_minions
+
+- label: rax-dev-params
+  # These are parameters that will not be displayed in the portal. The purpose
+  # of these parameters are for users who are developing or testing newer or
+  # different setups. If any of these parameters are changed, there is a good
+  # chance this stack will fail to properly deploy.
+  parameters:
+  - salt_network_range
+
+parameters:
+
+  # Server settings
+  image:
+    label: Operating System
+    description: Operating system used on all servers in this deployment.
+    type: string
+    default: Ubuntu 14.04 LTS (Trusty Tahr)
+    constraints:
+    - allowed_values:
+      - Ubuntu 12.04 LTS (Precise Pangolin)
+      - Ubuntu 14.04 LTS (Trusty Tahr)
+      description: Must be a supported operating system.
+
+  master_flavor:
+    label: Server Size
+    description: Rackspace Cloud Server flavor for the Salt Master
+    type: string
+    default: 2 GB Performance
+    constraints:
+    - allowed_values:
+      - 1 GB Performance
+      - 2 GB Performance
+      - 4 GB Performance
+      - 8 GB Performance
+      - 15 GB Performance
+      - 30 GB Performance
+      - 1GB Standard Instance
+      - 2GB Standard Instance
+      - 4GB Standard Instance
+      - 8GB Standard Instance
+      - 15GB Standard Instance
+      - 30GB Standard Instance
+      description: |
+        Must be a valid Rackspace Cloud Server flavor for the region you have
+        selected to deploy into.
+
+  minion_flavor:
+    label: Server Size
+    description: Rackspace Cloud Server flavor for the Minions
+    type: string
+    default: 1 GB Performance
+    constraints:
+    - allowed_values:
+      - 1 GB Performance
+      - 2 GB Performance
+      - 4 GB Performance
+      - 8 GB Performance
+      - 15 GB Performance
+      - 30 GB Performance
+      - 1GB Standard Instance
+      - 2GB Standard Instance
+      - 4GB Standard Instance
+      - 8GB Standard Instance
+      - 15GB Standard Instance
+      - 30GB Standard Instance
+      description: |
+        Must be a valid Rackspace Cloud Server flavor for the region you have
+        selected to deploy into.
+
+  number_of_minions:
+    label: Number of Minions
+    description: Number of minion servers to deploy.
+    type: number
+    default: 2
+    constraints:
+    - range:
+        min: 0
+        max: 100
+      description: Must be between 0 and 100 servers
+
+  salt_network_range:
+    label: Private Network CIDR
+    description: Private Network to use for Salt Communication
+    type: string
+    default: 192.168.224.0/20
+
+resources:
+  # SSH Key
+  ssh_key:
+    type: "OS::Nova::KeyPair"
+    properties:
+      name: { get_param: "OS::stack_id" }
+      save_private_key: true
+
+  # Private Cloud Network for SaltStack communication
+  salt_network:
+    type: Rackspace::Cloud::Network
+    properties:
+      label: salt_network
+      cidr: { get_param: salt_network_range }
+
+  # Server resources
+  salt_master_server:
+    type: "Rackspace::Cloud::Server"
+    properties:
+      name: salt-master
+      flavor: { get_param: master_flavor }
+      image: { get_param: image }
+      key_name: { get_resource: ssh_key }
+      networks:
+      - uuid: "00000000-0000-0000-0000-000000000000"
+      - uuid: "11111111-1111-1111-1111-111111111111"
+      - uuid: { get_resource: salt_network }
+      user_data: |
+        #!/bin/bash
+        apt-get update
+        apt-get install python-software-properties -y
+        add-apt-repository ppa:saltstack/salt -y
+        apt-get update
+        apt-get install salt-master salt-cloud -y
+        ufw allow salt
+
+  salt_minion_servers:
+    type: "OS::Heat::ResourceGroup"
+    depends_on: salt_master_server
+    properties:
+      count: { get_param: number_of_minions }
+      resource_def:
+        type: "Rackspace::Cloud::Server"
+        properties:
+          name: salt-minion%index%
+          flavor: { get_param: minion_flavor }
+          image: { get_param: image }
+          key_name: { get_resource: ssh_key }
+          networks:
+          - uuid: "00000000-0000-0000-0000-000000000000"
+          - uuid: "11111111-1111-1111-1111-111111111111"
+          - uuid: { get_resource: salt_network }
+          user_data:
+            str_replace:
+              template: |
+                #!/bin/bash
+                apt-get update
+                apt-get install python-software-properties -y
+                add-apt-repository ppa:saltstack/salt -y
+                apt-get update
+                apt-get install salt-minion -y
+                sed -i 's/^#master: salt$/master: %salt_master%/' /etc/salt/minion
+                /etc/init.d/salt-minion restart
+              params:
+                "%salt_master%": { get_attr: [ salt_master_server, networks, salt_network, 0] }
+
+outputs:
+  private_key:
+    description: Private Key
+    value: { get_attr: [ssh_key, private_key] }
+
+  salt_master_ip:
+    description: Salt Master IPs
+    value: { get_attr: [salt_master_server, accessIPv4] }
+
+  minion_public_ips:
+    description: Minion IPs
+    value: { get_attr: [salt_minion_servers, accessIPv4] }
