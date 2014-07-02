@@ -28,7 +28,9 @@ parameters:
   # Server settings
   image:
     label: Operating System
-    description: Operating system used on all servers in this deployment.
+    description: |
+      Server image used for all servers that are created as a part of this
+      deployment.
     type: string
     default: Ubuntu 14.04 LTS (Trusty Tahr)
     constraints:
@@ -39,7 +41,9 @@ parameters:
 
   master_flavor:
     label: Server Size
-    description: Rackspace Cloud Server flavor for the Salt Master
+    description: |
+      Rackspace Cloud Server flavor to use. The size is based on the amount of
+      RAM for the provisioned server.
     type: string
     default: 2 GB Performance
     constraints:
@@ -62,7 +66,9 @@ parameters:
 
   minion_flavor:
     label: Server Size
-    description: Rackspace Cloud Server flavor for the Minions
+    description: |
+      Rackspace Cloud Server flavor to use. The size is based on the amount of
+      RAM for the provisioned server.
     type: string
     default: 1 GB Performance
     constraints:
@@ -168,11 +174,11 @@ resources:
 
 outputs:
   private_key:
-    description: Private Key
+    description: SSH Private Key
     value: { get_attr: [ssh_key, private_key] }
 
   salt_master_ip:
-    description: Salt Master IPs
+    description: Salt Master IP
     value: { get_attr: [salt_master_server, accessIPv4] }
 
   minion_public_ips:
