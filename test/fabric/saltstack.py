@@ -1,6 +1,7 @@
 from fabric.api import env, run, task
 from envassert import detect, file, group, package, port, process, service, \
     user
+from hot.utils.test import get_artifacts, http_check
 
 
 @task
@@ -39,3 +40,9 @@ def check_minion():
 
     assert process.is_up('salt-minion'), 'salt-minion process is not up'
     assert service.is_enabled('salt-minion'), 'salt-minion is not enabled'
+
+
+@task
+def artifacts():
+    env.platform_family = detect.detect()
+    get_artifacts()

@@ -15,6 +15,7 @@ test-cases:
             key_filename: tmp/private_key
             hosts: { get_output: salt_master_ip } # Fetch from output-list of stack
             tasks:
+              - artifacts
               - check_master
             abort_on_prompts: True
             connection_attempts: 3
@@ -30,6 +31,7 @@ test-cases:
             key_filename: tmp/private_key
             hosts: { get_output: minion_public_ips } # Fetch from output-list of stack
             tasks:
+              - artifacts
               - check_minion
             abort_on_prompts: True
             connection_attempts: 3
@@ -55,6 +57,7 @@ test-cases:
             key_filename: tmp/private_key
             hosts: { get_output: salt_master_ip } # Fetch from output-list of stack
             tasks:
+              - artifacts
               - check_master
             abort_on_prompts: True
             connection_attempts: 3
@@ -70,6 +73,7 @@ test-cases:
             key_filename: tmp/private_key
             hosts: { get_output: minion_public_ips } # Fetch from output-list of stack
             tasks:
+              - artifacts
               - check_minion
             abort_on_prompts: True
             connection_attempts: 3
