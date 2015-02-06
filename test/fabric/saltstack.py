@@ -1,7 +1,6 @@
-from fabric.api import env, run, task
-from envassert import detect, file, group, package, port, process, service, \
-    user
-from hot.utils.test import get_artifacts, http_check
+from fabric.api import env, task
+from envassert import detect, package, port, process, service
+from hot.utils.test import get_artifacts
 
 
 @task
@@ -33,7 +32,7 @@ def check_master():
 def check_minion():
     env.platform_family = detect.detect()
 
-    packages = [ 'python-software-properties', 'salt-minion']
+    packages = ['python-software-properties', 'salt-minion']
 
     for pkg in packages:
         assert package.installed(pkg), 'package %s not installed' % pkg
