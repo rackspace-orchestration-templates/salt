@@ -157,14 +157,21 @@ resources:
       user_data:
         str_replace:
           template: |
-            #!/bin/bash
-            apt-get update
-            apt-get install python-software-properties -y
-            add-apt-repository ppa:saltstack/salt -y
-            apt-get update
-            apt-get install salt-master salt-cloud -y
-            ufw allow salt
-            wc_notify --data-binary '{"status": "SUCCESS"}'
+            package_update: true
+            packages:
+              - python-software-properties
+            write_files:
+              - path: /tmp/heat/salt.sh
+                permissions: '0500'
+                content: |
+                  #!/bin/bash
+                  add-apt-repository ppa:saltstack/salt -y
+                  apt-get update
+                  apt-get install salt-master salt-cloud -y
+                  ufw allow salt
+                  wc_notify --data-binary '{"status": "SUCCESS"}'
+            runcmd:
+              - /tmp/heat/salt.sh
           params:
             wc_notify: { get_attr: ['wait_condition_handle_master', 'curl_cli'] }
 
@@ -189,15 +196,22 @@ resources:
           user_data:
             str_replace:
               template: |
-                #!/bin/bash
-                apt-get update
-                apt-get install python-software-properties -y
-                add-apt-repository ppa:saltstack/salt -y
-                apt-get update
-                apt-get install salt-minion -y
-                sed -i 's/^#master: salt$/master: %salt_master%/' /etc/salt/minion
-                /etc/init.d/salt-minion restart
-                wc_notify --data-binary '{"status": "SUCCESS"}'
+                package_update: true
+                packages:
+                  - python-software-properties
+                write_files:
+                  - path: /tmp/heat/salt.sh
+                    permissions: '0500'
+                    content: |
+                      #!/bin/bash
+                      add-apt-repository ppa:saltstack/salt -y
+                      apt-get update
+                      apt-get install salt-minion -y
+                      sed -i 's/^#master: salt$/master: %salt_master%/' /etc/salt/minion
+                      /etc/init.d/salt-minion restart
+                      wc_notify --data-binary '{"status": "SUCCESS"}'
+                runcmd:
+                  - /tmp/heat/salt.sh
               params:
                 wc_notify: { get_attr: ['wait_condition_handle_minions', 'curl_cli'] }
                 "%salt_master%": { get_attr: [ salt_master_server, networks, salt_network, 0] }
