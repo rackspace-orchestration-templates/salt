@@ -107,6 +107,25 @@ parameters:
     default: 192.168.224.0/20
 
 resources:
+
+  wait_condition_master:
+    type: OS::Heat::SwiftSignal
+    properties:
+      handle: { get_resource: wait_condition_handle }
+      timeout: 1800
+
+  wait_condition_handle_master:
+    type: OS::Heat::SwiftSignalHandle
+
+  wait_condition_minions:
+    type: OS::Heat::SwiftSignal
+    properties:
+      handle: { get_resource: wait_condition_handle }
+      timeout: 1800
+
+  wait_condition_handle_minions:
+    type: OS::Heat::SwiftSignalHandle
+
   # SSH Key
   ssh_key:
     type: "OS::Nova::KeyPair"
