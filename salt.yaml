@@ -111,7 +111,7 @@ resources:
   wait_condition_master:
     type: OS::Heat::SwiftSignal
     properties:
-      handle: { get_resource: wait_condition_handle }
+      handle: { get_resource: wait_condition_handle_master }
       timeout: 1800
 
   wait_condition_handle_master:
@@ -120,7 +120,7 @@ resources:
   wait_condition_minions:
     type: OS::Heat::SwiftSignal
     properties:
-      handle: { get_resource: wait_condition_handle }
+      handle: { get_resource: wait_condition_handle_minions }
       timeout: 1800
 
   wait_condition_handle_minions:
