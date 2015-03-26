@@ -8,7 +8,6 @@ def check_master():
     env.platform_family = detect.detect()
 
     packages = [
-        'python-software-properties',
         'salt-master',
         'salt-cloud'
     ]
@@ -26,19 +25,6 @@ def check_master():
 
     assert process.is_up("salt-master"), "salt-master process is not up"
     assert service.is_enabled("salt-master"), "salt-master is not enabled"
-
-
-@task
-def check_minion():
-    env.platform_family = detect.detect()
-
-    packages = ['python-software-properties', 'salt-minion']
-
-    for pkg in packages:
-        assert package.installed(pkg), 'package %s not installed' % pkg
-
-    assert process.is_up('salt-minion'), 'salt-minion process is not up'
-    assert service.is_enabled('salt-minion'), 'salt-minion is not enabled'
 
 
 @task
