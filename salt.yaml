@@ -10,19 +10,6 @@ parameter_groups:
   - image
   - master_flavor
 
-- label: Salt Minion Settings
-  parameters:
-  - minion_flavor
-  - number_of_minions
-
-- label: rax-dev-params
-  # These are parameters that will not be displayed in the portal. The purpose
-  # of these parameters are for users who are developing or testing newer or
-  # different setups. If any of these parameters are changed, there is a good
-  # chance this stack will fail to properly deploy.
-  parameters:
-  - salt_network_range
-
 parameters:
 
   # Server settings
@@ -35,7 +22,6 @@ parameters:
     default: Ubuntu 14.04 LTS (Trusty Tahr) (PV)
     constraints:
     - allowed_values:
-      - Ubuntu 12.04 LTS (Precise Pangolin) (PVHVM)
       - Ubuntu 14.04 LTS (Trusty Tahr) (PV)
       description: Must be a supported operating system.
 
@@ -64,49 +50,17 @@ parameters:
         Must be a valid Rackspace Cloud Server flavor for the region you have
         selected to deploy into.
 
-  minion_flavor:
-    label: Server Size
-    description: |
-      Rackspace Cloud Server flavor to use. The size is based on the amount of
-      RAM for the provisioned server.
-    type: string
-    default: 1 GB General Purpose v1
-    constraints:
-    - allowed_values:
-      - 1 GB General Purpose v1
-      - 2 GB General Purpose v1
-      - 4 GB General Purpose v1
-      - 8 GB General Purpose v1
-      - 15 GB I/O v1
-      - 30 GB I/O v1
-      - 1GB Standard Instance
-      - 2GB Standard Instance
-      - 4GB Standard Instance
-      - 8GB Standard Instance
-      - 15GB Standard Instance
-      - 30GB Standard Instance
-      description: |
-        Must be a valid Rackspace Cloud Server flavor for the region you have
-        selected to deploy into.
-
-  number_of_minions:
-    label: Number of Minions
-    description: Number of minion servers to deploy.
-    type: number
-    default: 2
-    constraints:
-    - range:
-        min: 0
-        max: 100
-      description: Must be between 0 and 100 servers
-
-  salt_network_range:
-    label: Private Network CIDR
-    description: Private Network to use for Salt Communication
-    type: string
-    default: 192.168.224.0/20
-
 resources:
+
+  wait_condition:
+    type: OS::Heat::SwiftSignal
+    properties:
+      handle: { get_resource: wait_condition_handle }
+      timeout: 1800
+
+  wait_condition_handle:
+    type: OS::Heat::SwiftSignalHandle
+
   # SSH Key
   ssh_key:
     type: "OS::Nova::KeyPair"
@@ -114,63 +68,38 @@ resources:
       name: { get_param: "OS::stack_id" }
       save_private_key: true
 
-  # Private Cloud Network for SaltStack communication
-  salt_network:
-    type: Rackspace::Cloud::Network
-    properties:
-      label: salt_network
-      cidr: { get_param: salt_network_range }
-
   # Server resources
   salt_master_server:
-    type: "Rackspace::Cloud::Server"
+    type: "OS::Nova::Server"
     properties:
       name: salt-master
       flavor: { get_param: master_flavor }
       image: { get_param: image }
       key_name: { get_resource: ssh_key }
-      networks:
-      - uuid: "00000000-0000-0000-0000-000000000000"
-      - uuid: "11111111-1111-1111-1111-111111111111"
-      - uuid: { get_resource: salt_network }
-      user_data: |
-        #!/bin/bash
-        apt-get update
-        apt-get install python-software-properties -y
-        add-apt-repository ppa:saltstack/salt -y
-        apt-get update
-        apt-get install salt-master salt-cloud -y
-        ufw allow salt
-
-  salt_minion_servers:
-    type: "OS::Heat::ResourceGroup"
-    depends_on: salt_master_server
-    properties:
-      count: { get_param: number_of_minions }
-      resource_def:
-        type: "Rackspace::Cloud::Server"
-        properties:
-          name: salt-minion%index%
-          flavor: { get_param: minion_flavor }
-          image: { get_param: image }
-          key_name: { get_resource: ssh_key }
-          networks:
-          - uuid: "00000000-0000-0000-0000-000000000000"
-          - uuid: "11111111-1111-1111-1111-111111111111"
-          - uuid: { get_resource: salt_network }
-          user_data:
-            str_replace:
-              template: |
-                #!/bin/bash
-                apt-get update
-                apt-get install python-software-properties -y
-                add-apt-repository ppa:saltstack/salt -y
-                apt-get update
-                apt-get install salt-minion -y
-                sed -i 's/^#master: salt$/master: %salt_master%/' /etc/salt/minion
-                /etc/init.d/salt-minion restart
-              params:
-                "%salt_master%": { get_attr: [ salt_master_server, networks, salt_network, 0] }
+      metadata:
+        rax-heat: { get_param: "OS::stack_id" }
+      config_drive: "true"
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            apt_sources:
+              - source: "ppa:saltstack/salt"
+            package_update: true
+            packages:
+              - salt-master
+              - salt-cloud
+            write_files:
+              - path: /tmp/heat/swiftsignal.sh
+                permissions: '0500'
+                content: |
+                  #!/bin/bash
+                  wc_notify --data-binary '{"status": "SUCCESS"}'
+            runcmd:
+              - /tmp/heat/swiftsignal.sh
+          params:
+            wc_notify: { get_attr: ['wait_condition_handle', 'curl_cli'] }
 
 outputs:
   private_key:
@@ -180,7 +109,3 @@ outputs:
   salt_master_ip:
     description: Salt Master IP
     value: { get_attr: [salt_master_server, accessIPv4] }
-
-  minion_public_ips:
-    description: Minion IPs
-    value: { get_attr: [salt_minion_servers, accessIPv4] }
