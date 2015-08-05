@@ -1,7 +1,10 @@
 heat_template_version: 2013-05-23
 
 description: |
-  This is a Heat template to deploy a salt master and a number of minions.
+  Multiple Linux servers running [SaltStack](http://www.saltstack.com/).
+  This deployment has a single Salt Master with multiple Minions. All minions
+  will be configured to point to the Salt Master. Includes dependencies for
+  Salt Cloud and the GitFS backend.
 
 parameter_groups:
 
